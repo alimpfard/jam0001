@@ -103,6 +103,7 @@ may use the `collapse` function to randomly select an element of the set.
 
 ## Standard types
 | name | meaning |
-| `int` | 32-bit signed integer |
+| :- | :-- |
+| `int` | 4097-bit signed integer |
 | `string` | arbitrary-length string |
 | `any` | any type, standard or user-defined |

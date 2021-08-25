@@ -1,8 +1,10 @@
 #pragma once
 
+#include "bigint.h"
 #include <AK/HashMap.h>
 #include <AK/OwnPtr.h>
 #include <AK/String.h>
+#include <AK/UFixedBigInt.h>
 #include <AK/Variant.h>
 #include <AK/Vector.h>
 #include <typeinfo>
@@ -12,6 +14,8 @@ enum class NativeType {
     String,
     Any,
 };
+
+using NumberType = FixedBigInt<u4096>;
 
 struct Type;
 struct TypeName {
@@ -24,7 +28,7 @@ struct Type : public RefCounted<Type> {
         : decl(move(decl))
     {
     }
-    
+
     Variant<Vector<TypeName>, NativeType> decl;
 };
 
@@ -52,7 +56,34 @@ struct FunctionValue {
 };
 
 struct Value {
-    Variant<Empty, int, String, NonnullRefPtr<Type>, FunctionValue, NonnullRefPtr<CommentResolutionSet>, NativeFunctionType, RecordValue> value;
+    template<typename T>
+    Value(T&& v)
+        : value(v)
+    {
+    }
+
+    Value(i64 v)
+        : value(NumberType(v))
+    {
+    }
+
+    Value(int v)
+        : value(NumberType((i64)v))
+    {
+    }
+
+    Value(bool v)
+        : value(NumberType((u64)v))
+    {
+    }
+
+    Value(Value const& v) = default;
+    Value(Value&) = default;
+    Value(Value&& v) = default;
+    Value& operator=(Value&&) = default;
+    Value& operator=(Value const&) = default;
+
+    Variant<Empty, NumberType, String, NonnullRefPtr<Type>, FunctionValue, NonnullRefPtr<CommentResolutionSet>, NativeFunctionType, RecordValue> value;
 };
 
 struct CommentResolutionSet : public AK::RefCounted<CommentResolutionSet> {
@@ -67,3 +98,4 @@ struct Context {
 };
 
 Value& flatten(Value& input);
+NonnullRefPtr<Type> type_from(Value const&);

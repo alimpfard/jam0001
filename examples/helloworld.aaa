@@ -1,0 +1,31 @@
+let equation = { |x|: y
+    let resolution_factor = 16;
+    let y = div(add(
+        div(mul(x x x x x x x x x x x 6607 resolution_factor) 9979200).neg
+        div(mul(x x x x x x x x x x 43469 resolution_factor) 907200)
+        div(mul(x x x x x x x x x 184949 resolution_factor) 120960).neg
+        div(mul(x x x x x x x x 3424009 resolution_factor) 120960)
+        div(mul(x x x x x x x 50886691 resolution_factor) 151200).neg
+        div(mul(x x x x x x 3626521 resolution_factor) 1350)
+        div(mul(x x x x x 691 7673401 resolution_factor) 362880).neg
+        div(mul(x x x x 97 313 643303 resolution_factor) 362880)
+        div(mul(x x x 5953 829111 resolution_factor) 37800).neg
+        div(mul(x x 2789 1185299 resolution_factor) 16800)
+        div(mul(x 67 22567063 resolution_factor) 9240).neg
+        mul(55920 resolution_factor)
+    ) resolution_factor);
+};
+
+let repeat = { |start count fn|: res
+    let res = loop(record { i x }(1 [fn(start)])
+        { |x|:r let r = typeof(x)(add(x.i 1) append(fn(add(x.i start)) x.x)); }
+        { |x|:r let r = eq(x.i count); }).x;
+};
+
+let fog = { |f g|: fog
+    let fog = { |x|: y
+        let y = g(f(x));
+    };
+};
+
+print(repeat(1 12 fog(equation string)));

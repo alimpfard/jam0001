@@ -58,7 +58,7 @@ public:
         const_cast<T&>(object).ref();
     }
     template<typename U>
-    ALWAYS_INLINE NonnullRefPtr(const U& object)
+    ALWAYS_INLINE NonnullRefPtr(const U& object) requires(requires { (T) object; })
         : m_bits((FlatPtr) static_cast<const T*>(&object))
     {
         VERIFY(!(m_bits & 1));

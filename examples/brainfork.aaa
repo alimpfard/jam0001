@@ -22,7 +22,7 @@ let interpret = { |input|
         insn: int
     };
     let step = { |s|: res
-        let ch = nth(s.i input);
+        let ch = get(s.i input);
 
         // next
         { |s|: res
@@ -49,7 +49,7 @@ let interpret = { |input|
             let res = state(
                 add(s.i 1)
                 s.loop
-                replace_at(s.tape_index string(add(int(nth(s.tape_index s.tape)) 1)) s.tape)
+                replace_at(s.tape_index string(add(int(get(s.tape_index s.tape)) 1)) s.tape)
                 s.tape_index
                 add(s.insn 1)
             );
@@ -59,14 +59,14 @@ let interpret = { |input|
             let res = state(
                 add(s.i 1)
                 s.loop
-                replace_at(s.tape_index string(sub(int(nth(s.tape_index s.tape)) 1)) s.tape)
+                replace_at(s.tape_index string(sub(int(get(s.tape_index s.tape)) 1)) s.tape)
                 s.tape_index
                 add(s.insn 1)
             );
         };
         // putchar the character in cell
         { |s|: res
-            print(nth(s.tape_index s.tape));
+            print(get(s.tape_index s.tape));
             let res = state(
                 add(s.i 1)
                 s.loop
@@ -106,7 +106,7 @@ let interpret = { |input|
                     add(s.insn 1)
                 );
                 let step = { |s|: res
-                    let ch = nth(sub(s.i 1) input);
+                    let ch = get(sub(s.i 1) input);
                     let res = state(
                         sub(s.i 1)
                         cond(
@@ -123,7 +123,7 @@ let interpret = { |input|
                 };
                 let res = loop(init step stop);
             };
-            let res = cond(int(nth(s.tape_index s.tape)) iftrue <noop>)(s);
+            let res = cond(int(get(s.tape_index s.tape)) iftrue <noop>)(s);
         };
 
         let res = cond(
@@ -138,7 +138,7 @@ let interpret = { |input|
             <noop>
         )(s);
 
-        // print("==" collapse(s.insn) "== index" collapse(s.i) "of" input.length "insn" ch "tape index" collapse(s.tape_index) "char at tape" int(nth(s.tape_index s.tape)));
+        // print("==" collapse(s.insn) "== index" collapse(s.i) "of" input.length "insn" ch "tape index" collapse(s.tape_index) "char at tape" int(get(s.tape_index s.tape)));
         // print(res);
     };
     let stop = { |s|: res

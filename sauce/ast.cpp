@@ -200,15 +200,15 @@ Value Call::execute(Context& context)
                 case NativeType::Any:
                     return first;
                 case NativeType::Int:
-                    if (first.value.template has<int>())
+                    if (first.value.template has<NumberType>())
                         return first;
                     if (first.value.template has<String>())
-                        return { first.value.template get<String>()[0] };
+                        return { NumberType((u64)first.value.template get<String>()[0]) };
                 case NativeType::String:
                     if (first.value.template has<String>())
                         return first;
-                    if (first.value.template has<int>())
-                        return { String::repeated(first.value.template get<int>(), 1) };
+                    if (first.value.template has<NumberType>())
+                        return { String::repeated(first.value.template get<NumberType>().value(), 1) };
                 }
                 return { Empty {} };
             }
@@ -279,7 +279,7 @@ Value Variable::execute(Context& context)
             value = create<Call>(
                 *m_type,
                 Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
-                ->run(context);
+                        ->run(context);
         }
 
         return value;
@@ -340,7 +340,7 @@ Value MemberAccess::execute(Context& context)
                     return { string.length() };
                 return { Empty {} };
             },
-            [&](int value) -> Value {
+            [&](NumberType const& value) -> Value {
                 if (m_property.is_one_of("negated"sv, "neg"sv))
                     return { -value };
 
@@ -348,7 +348,41 @@ Value MemberAccess::execute(Context& context)
             },
             [](FunctionValue const&) -> Value { return { Empty {} }; },
             [](NativeFunctionType const&) -> Value { return { Empty {} }; },
-            [](NonnullRefPtr<Type> const&) -> Value { return { Empty {} }; },
+            [this](NonnullRefPtr<Type> const& type) -> Value {
+                if (m_property == "is_native"sv)
+                    return { type->decl.template has<NativeType>() };
+
+                if (m_property == "members"sv) {
+                    auto type_ptr = type->decl.template get_pointer<Vector<TypeName>>();
+                    if (!type_ptr)
+                        return { Empty {} };
+
+                    Vector<TypeName> types;
+                    Vector<Value> values;
+
+                    types.append({ .name = "length",
+                        .type = create<Type>(NativeType::Int) });
+                    values.append({ type_ptr->size() });
+
+                    size_t index = 0;
+                    for (auto& entry : *type_ptr) {
+                        TypeName type {
+                            .name = String::formatted("_{}", index),
+                            .type = create<Type>(NativeType::Any)
+                        };
+
+                        types.append(move(type));
+                        values.append({ entry.name });
+                        ++index;
+                    }
+                    return { RecordValue {
+                        .type = create<Type>(move(types)),
+                        .members = move(values),
+                    } };
+                }
+
+                return { Empty {} };
+            },
             [&](RecordValue const& rv) -> Value {
                 if (rv.type->decl.template has<NativeType>())
                     return visit(rv.members.first());
@@ -390,10 +424,48 @@ Value Assignment::execute(Context& context)
     auto value = m_value->run(context);
     if (m_variable->type()) {
         value = create<Call>(
-                *const_cast<RefPtr<ASTNode>&>(m_variable->type()),
-                Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
-                ->run(context);
+            *const_cast<RefPtr<ASTNode>&>(m_variable->type()),
+            Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
+                    ->run(context);
     }
     context.scope.last().set(m_variable->name(), value);
     return value;
+}
+
+NonnullRefPtr<Type> type_from(Value const& value)
+{
+    if (value.value.has<NumberType>())
+        return create<Type>(NativeType::Int);
+    if (value.value.has<String>())
+        return create<Type>(NativeType::String);
+    if (auto ptr = value.value.get_pointer<RecordValue>())
+        return ptr->type;
+    return create<Type>(NativeType::Any);
+}
+
+Value List::execute(Context& context)
+{
+    Vector<TypeName> types;
+    Vector<Value> values;
+
+    types.append({ .name = "length",
+        .type = create<Type>(NativeType::Int) });
+    values.append({ m_entries.size() });
+
+    size_t index = 0;
+    for (auto& entry : m_entries) {
+        auto value = entry->run(context);
+        TypeName type {
+            .name = String::formatted("_{}", index),
+            .type = type_from(value)
+        };
+
+        types.append(move(type));
+        values.append(move(value));
+        ++index;
+    }
+    return { RecordValue {
+        .type = create<Type>(move(types)),
+        .members = move(values),
+    } };
 }

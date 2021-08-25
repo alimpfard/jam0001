@@ -1,7 +1,7 @@
 #include "parser.h"
 #include <AK/TypeCasts.h>
 
-Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> Parser::parse_toplevel(bool for_func)
+Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> Parser::parse_toplevel(bool for_func, bool for_repl)
 {
     Vector<NonnullRefPtr<ASTNode>> nodes;
     for (;;) {
@@ -31,6 +31,9 @@ Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> Parser::parse_toplevel(bool f
             (void)consume();
 
         nodes.append(static_ptr_cast<ASTNode>(create<Statement>(maybe_node->release_value())));
+
+        if (for_repl)
+            break;
     }
 
     return nodes;
@@ -69,17 +72,32 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_expression()
             auto expression = parse_expression();
             if (expression.is_error())
                 return expression.release_error();
-            auto res = consume();
-            if (res.is_error())
-                return error(res.release_error());
 
-            if (res.value().type != Token::Type::CloseParen)
-                return make_error_here("Expected a close paren");
+            if (peek().type != Token::Type::CloseParen)
+                return make_error_here("Expected a close paren ')'");
 
-            return expression;
+            (void)consume();
+
+            return expression.release_value();
         }
         case Token::Type::CloseParen:
             return make_error_here("Unexpected ')'");
+        case Token::Type::OpenBracket: {
+            (void)consume();
+            Vector<NonnullRefPtr<ASTNode>> exprs;
+            while (peek().type != Token::Type::CloseBracket) {
+                auto expression = parse_expression();
+                if (expression.is_error())
+                    return expression.release_error();
+                if (peek().type == Token::Type::Comma)
+                    (void)consume();
+                exprs.append(expression.release_value());
+            }
+            (void)consume();
+            return static_ptr_cast<ASTNode>(create<List>(move(exprs)));
+        }
+        case Token::Type::CloseBracket:
+            return make_error_here("Unexpected ']'");
         case Token::Type::Comma:
             return make_error_here("Unexpected ','");
         case Token::Type::Colon:
@@ -164,7 +182,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_literal()
     auto token = consume().release_value();
     VERIFY(token.type == Token::Type::Integer);
 
-    auto value = token.text.to_int();
+    auto value = token.text.to_int<i64>();
     if (!value.has_value())
         return make_error_here("Invalid integer value");
 
@@ -237,8 +255,6 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_function()
     if (body.is_error())
         return body.release_error();
 
-    (void)consume();
-
     return static_ptr_cast<ASTNode>(create<FunctionNode>(move(parameters), move(return_), body.release_value()));
 }
 
@@ -294,7 +310,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_record_decl()
     while (peek().type != Token::Type::CloseBrace) {
         if (peek().type == Token::Type::Eof)
             return make_error_here("Expected a close brace, but got eof");
-        
+
         auto var = parse_variable();
         if (var.is_error())
             return var.release_error();
@@ -310,10 +326,10 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_member_access(NonnullRe
     auto token = consume();
     if (token.is_error())
         return error(token.release_error());
-    
+
     if (token.value().type != Token::Type::Identifier)
         return make_error_here("Expected an identifier");
-    
+
     return static_ptr_cast<ASTNode>(create<MemberAccess>(token.release_value().text, move(base)));
 }
 

@@ -26,14 +26,16 @@ add("p" "r" "i" "n" "t");
         <stop cond>).a;
 };
 
-// one option
-{:x let x = <fib>(2); };
-// one option
-{:x let x = <fib>(5); };
-// one option
-{:x let x = <fib>(13); };
-// one option
-{:x let x = <fib>(10); };
+// // one option
+// {:x let x = <fib>(2); };
+// // one option
+// {:x let x = <fib>(5); };
+// // one option
+// {:x let x = <fib>(13); };
+// // one option
+// {:x let x = <fib>(10); };
 
 // Can't resist having randomness?
-!<add(<name of print> " native")>(collapse(<one option>()));
+//!<add(<name of print> " native")>(collapse(<one option>()));
+
+print("fib(400000) =" collapse(<fib>(400000)));

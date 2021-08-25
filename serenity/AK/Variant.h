@@ -201,6 +201,8 @@ private:
     static constexpr IndexType index_of() { return Detail::index_of<T, IndexType, Ts...>(); }
 
 public:
+    using Types = TypeList<Ts...>;
+
     template<typename T>
     static constexpr bool can_contain()
     {

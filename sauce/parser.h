@@ -16,7 +16,7 @@ public:
     {
     }
 
-    Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> parse_toplevel(bool for_func = false);
+    Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> parse_toplevel(bool for_func = false, bool for_repl = false);
 
 private:
     Token peek()

@@ -61,7 +61,7 @@ private:
     virtual Value execute(Context&) { return { m_value }; }
     virtual void dump(int indent) override;
 
-    int m_value { 0 };
+    i64 m_value { 0 };
 };
 
 class StringLiteral : public ASTNode {
@@ -209,6 +209,19 @@ private:
 
     String m_property;
     NonnullRefPtr<ASTNode> m_base;
+};
+
+class List : public ASTNode {
+public:
+    explicit List(Vector<NonnullRefPtr<ASTNode>> entries)
+        : m_entries(move(entries))
+    {
+    }
+
+private:
+    Value execute(Context&) override;
+
+    Vector<NonnullRefPtr<ASTNode>> m_entries;
 };
 
 class Assignment : public ASTNode {

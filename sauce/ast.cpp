@@ -38,7 +38,7 @@ void DirectMention::dump(int indent)
 
 Value DirectMention::execute(Context& context)
 {
-    auto crs = create<CommentResolutionSet>();
+    auto crs = make_ref_counted<CommentResolutionSet>();
     if (m_keywords.is_empty())
         return Value { move(crs) };
 
@@ -96,7 +96,7 @@ Value IndirectMention::execute(Context& context)
         return { Empty {} };
 
     auto words = mention.value.get<String>().split(' ');
-    return create<DirectMention>(move(words))->run(context);
+    return make_ref_counted<DirectMention>(move(words))->run(context);
 }
 
 void FunctionNode::dump(int indent)
@@ -143,7 +143,7 @@ Value Call::execute(Context& context)
             return ptr->fn(context, arguments.data(), arguments.size());
         if (auto ptr = callee.value.template get_pointer<NonnullRefPtr<CommentResolutionSet>>()) {
             auto set_ptr = ptr->ptr();
-            auto crs = create<CommentResolutionSet>();
+            auto crs = make_ref_counted<CommentResolutionSet>();
             for (auto& entry : set_ptr->values)
                 crs->values.append(execute(entry));
             return Value { move(crs) };
@@ -208,7 +208,7 @@ Value Call::execute(Context& context)
                     if (first.value.template has<String>())
                         return first;
                     if (first.value.template has<NumberType>())
-                        return { String::repeated(first.value.template get<NumberType>().value(), 1) };
+                        return { String::repeated(first.value.template get<NumberType>().to<char>(), 1) };
                 }
                 return { Empty {} };
             }
@@ -223,9 +223,9 @@ Value Call::execute(Context& context)
                             size_t index = 0;
                             for (auto& entry : rv->members) {
                                 values.append(
-                                    create<Call>(
-                                        static_ptr_cast<ASTNode>(create<SyntheticNode>(Value { fields[index].type })),
-                                        Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(entry)) })
+                                    make_ref_counted<Call>(
+                                        static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(Value { fields[index].type })),
+                                        Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(entry)) })
                                         ->run(context));
                                 ++index;
                             }
@@ -242,9 +242,9 @@ Value Call::execute(Context& context)
                         values.append({ Empty {} });
                     else
                         values.append(
-                            create<Call>(
-                                static_ptr_cast<ASTNode>(create<SyntheticNode>(Value { type_name.type })),
-                                Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(arguments[index])) })
+                            make_ref_counted<Call>(
+                                static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(Value { type_name.type })),
+                                Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(arguments[index])) })
                                 ->run(context));
                     ++index;
                 }
@@ -276,9 +276,9 @@ Value Variable::execute(Context& context)
 
         auto value = scope.find(m_name)->value;
         if (m_type) {
-            value = create<Call>(
+            value = make_ref_counted<Call>(
                 *m_type,
-                Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
+                Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(value)) })
                         ->run(context);
         }
 
@@ -299,7 +299,7 @@ Value RecordDecl::execute(Context& context)
     for (auto& entry : m_decls) {
         TypeName member {
             .name = entry->name(),
-            .type = create<Type>(NativeType::Any),
+            .type = make_ref_counted<Type>(NativeType::Any),
         };
         if (entry->type()) {
             auto type = const_cast<RefPtr<ASTNode>&>(entry->type())->run(context);
@@ -308,7 +308,7 @@ Value RecordDecl::execute(Context& context)
         }
         members.append(move(member));
     }
-    return { create<Type>(move(members)) };
+    return { make_ref_counted<Type>(move(members)) };
 }
 
 void Comment::dump(int indent)
@@ -361,14 +361,14 @@ Value MemberAccess::execute(Context& context)
                     Vector<Value> values;
 
                     types.append({ .name = "length",
-                        .type = create<Type>(NativeType::Int) });
+                        .type = make_ref_counted<Type>(NativeType::Int) });
                     values.append({ type_ptr->size() });
 
                     size_t index = 0;
                     for (auto& entry : *type_ptr) {
                         TypeName type {
                             .name = String::formatted("_{}", index),
-                            .type = create<Type>(NativeType::Any)
+                            .type = make_ref_counted<Type>(NativeType::Any)
                         };
 
                         types.append(move(type));
@@ -376,7 +376,7 @@ Value MemberAccess::execute(Context& context)
                         ++index;
                     }
                     return { RecordValue {
-                        .type = create<Type>(move(types)),
+                        .type = make_ref_counted<Type>(move(types)),
                         .members = move(values),
                     } };
                 }
@@ -401,7 +401,7 @@ Value MemberAccess::execute(Context& context)
                 return rv.members.at(*pindex);
             },
             [&](NonnullRefPtr<CommentResolutionSet> const& crs) -> Value {
-                auto res_crs = create<CommentResolutionSet>();
+                auto res_crs = make_ref_counted<CommentResolutionSet>();
                 for (auto& entry : crs->values)
                     res_crs->values.append(visit(const_cast<Value&>(entry)));
                 return { move(res_crs) };
@@ -423,9 +423,9 @@ Value Assignment::execute(Context& context)
 {
     auto value = m_value->run(context);
     if (m_variable->type()) {
-        value = create<Call>(
+        value = make_ref_counted<Call>(
             *const_cast<RefPtr<ASTNode>&>(m_variable->type()),
-            Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
+            Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(value)) })
                     ->run(context);
     }
     context.scope.last().set(m_variable->name(), value);
@@ -435,12 +435,12 @@ Value Assignment::execute(Context& context)
 NonnullRefPtr<Type> type_from(Value const& value)
 {
     if (value.value.has<NumberType>())
-        return create<Type>(NativeType::Int);
+        return make_ref_counted<Type>(NativeType::Int);
     if (value.value.has<String>())
-        return create<Type>(NativeType::String);
+        return make_ref_counted<Type>(NativeType::String);
     if (auto ptr = value.value.get_pointer<RecordValue>())
         return ptr->type;
-    return create<Type>(NativeType::Any);
+    return make_ref_counted<Type>(NativeType::Any);
 }
 
 Value List::execute(Context& context)
@@ -449,7 +449,7 @@ Value List::execute(Context& context)
     Vector<Value> values;
 
     types.append({ .name = "length",
-        .type = create<Type>(NativeType::Int) });
+        .type = make_ref_counted<Type>(NativeType::Int) });
     values.append({ m_entries.size() });
 
     size_t index = 0;
@@ -465,7 +465,7 @@ Value List::execute(Context& context)
         ++index;
     }
     return { RecordValue {
-        .type = create<Type>(move(types)),
+        .type = make_ref_counted<Type>(move(types)),
         .members = move(values),
     } };
 }

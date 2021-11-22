@@ -30,7 +30,7 @@ Result<Vector<NonnullRefPtr<ASTNode>>, ParseError> Parser::parse_toplevel(bool f
         if (peek().type == Token::Type::Semicolon)
             (void)consume();
 
-        nodes.append(static_ptr_cast<ASTNode>(create<Statement>(maybe_node->release_value())));
+        nodes.append(static_ptr_cast<ASTNode>(make_ref_counted<Statement>(maybe_node->release_value())));
 
         if (for_repl)
             break;
@@ -56,7 +56,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_expression()
             return static_ptr_cast<ASTNode>(var.release_value());
         }
         case Token::Type::Comment:
-            return static_ptr_cast<ASTNode>(create<Comment>(consume().release_value().text));
+            return static_ptr_cast<ASTNode>(make_ref_counted<Comment>(consume().release_value().text));
         case Token::Type::MentionOpen:
             return parse_mention();
         case Token::Type::MentionClose:
@@ -94,7 +94,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_expression()
                 exprs.append(expression.release_value());
             }
             (void)consume();
-            return static_ptr_cast<ASTNode>(create<List>(move(exprs)));
+            return static_ptr_cast<ASTNode>(make_ref_counted<List>(move(exprs)));
         }
         case Token::Type::CloseBracket:
             return make_error_here("Unexpected ']'");
@@ -171,13 +171,13 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_assignment()
     if (expr.is_error())
         return expr.release_error();
 
-    return static_ptr_cast<ASTNode>(create<Assignment>(var.release_value(), expr.release_value()));
+    return static_ptr_cast<ASTNode>(make_ref_counted<Assignment>(var.release_value(), expr.release_value()));
 }
 
 Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_literal()
 {
     if (peek().type == Token::Type::String)
-        return static_ptr_cast<ASTNode>(create<StringLiteral>(consume().release_value().text));
+        return static_ptr_cast<ASTNode>(make_ref_counted<StringLiteral>(consume().release_value().text));
 
     auto token = consume().release_value();
     VERIFY(token.type == Token::Type::Integer);
@@ -186,7 +186,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_literal()
     if (!value.has_value())
         return make_error_here("Invalid integer value");
 
-    return static_ptr_cast<ASTNode>(create<IntegerLiteral>(*value));
+    return static_ptr_cast<ASTNode>(make_ref_counted<IntegerLiteral>(*value));
 }
 
 Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_mention(bool is_direct)
@@ -209,14 +209,14 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_mention(bool is_direct)
         }
         auto close_type = consume().release_value().type;
         VERIFY(close_type == Token::Type::MentionClose);
-        return static_ptr_cast<ASTNode>(create<DirectMention>(move(queries)));
+        return static_ptr_cast<ASTNode>(make_ref_counted<DirectMention>(move(queries)));
     } else {
         auto query = parse_expression();
         if (query.is_error())
             return query.release_error();
         auto close_type = consume().release_value().type;
         VERIFY(close_type == Token::Type::MentionClose);
-        return static_ptr_cast<ASTNode>(create<IndirectMention>(query.release_value()));
+        return static_ptr_cast<ASTNode>(make_ref_counted<IndirectMention>(query.release_value()));
     }
 }
 
@@ -255,7 +255,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_function()
     if (body.is_error())
         return body.release_error();
 
-    return static_ptr_cast<ASTNode>(create<FunctionNode>(move(parameters), move(return_), body.release_value()));
+    return static_ptr_cast<ASTNode>(make_ref_counted<FunctionNode>(move(parameters), move(return_), body.release_value()));
 }
 
 Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_call(NonnullRefPtr<ASTNode> callee)
@@ -276,7 +276,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_call(NonnullRefPtr<ASTN
     }
 
     (void)consume();
-    return static_ptr_cast<ASTNode>(create<Call>(move(callee), move(arguments)));
+    return static_ptr_cast<ASTNode>(make_ref_counted<Call>(move(callee), move(arguments)));
 }
 
 Result<NonnullRefPtr<Variable>, ParseError> Parser::parse_variable()
@@ -297,7 +297,7 @@ Result<NonnullRefPtr<Variable>, ParseError> Parser::parse_variable()
         if (maybe_token.value().type != Token::Type::Eof)
             m_unconsumed_tokens.enqueue(maybe_token.release_value());
     }
-    return create<Variable>(move(ident.text), move(type));
+    return make_ref_counted<Variable>(move(ident.text), move(type));
 }
 
 Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_record_decl()
@@ -317,7 +317,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_record_decl()
         contents.append(var.release_value());
     }
     (void)consume();
-    return static_ptr_cast<ASTNode>(create<RecordDecl>(move(contents)));
+    return static_ptr_cast<ASTNode>(make_ref_counted<RecordDecl>(move(contents)));
 }
 
 Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_member_access(NonnullRefPtr<ASTNode> base)
@@ -330,7 +330,7 @@ Result<NonnullRefPtr<ASTNode>, ParseError> Parser::parse_member_access(NonnullRe
     if (token.value().type != Token::Type::Identifier)
         return make_error_here("Expected an identifier");
 
-    return static_ptr_cast<ASTNode>(create<MemberAccess>(token.release_value().text, move(base)));
+    return static_ptr_cast<ASTNode>(make_ref_counted<MemberAccess>(token.release_value().text, move(base)));
 }
 
 ParseError Parser::make_error_here(String text)

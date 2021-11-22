@@ -284,16 +284,16 @@ Value lang$loop(Context& context, void* ptr, size_t count)
     auto& stop = args[2];
 
     auto step_fn = [&] {
-        value = create<Call>(
-            static_ptr_cast<ASTNode>(create<SyntheticNode>(step)),
-            Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
+        value = make_ref_counted<Call>(
+            static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(step)),
+            Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(value)) })
                     ->run(context);
     };
 
     auto stop_fn = [&] {
-        auto res = create<Call>(
-            static_ptr_cast<ASTNode>(create<SyntheticNode>(stop)),
-            Vector { static_ptr_cast<ASTNode>(create<SyntheticNode>(value)) })
+        auto res = make_ref_counted<Call>(
+            static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(stop)),
+            Vector { static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(value)) })
                        ->run(context);
         return truth(res);
     };
@@ -317,14 +317,14 @@ Value lang$get(Context& context, void* ptr, size_t count)
         [&](NumberType index) {
             return subject.value.visit(
                 [&](String const& str) {
-                    return Value { String::repeated(str[index.value()], 1) };
+                    return Value { String::repeated(str[index.to_size()], 1) };
                 },
                 [&](auto&) {
                     return Value { Empty {} };
                 });
         },
         [&](String& field) {
-            return create<MemberAccess>(field, static_ptr_cast<ASTNode>(create<SyntheticNode>(subject)))->run(context);
+            return make_ref_counted<MemberAccess>(field, static_ptr_cast<ASTNode>(make_ref_counted<SyntheticNode>(subject)))->run(context);
         },
         [](auto&) { return Value { Empty {} }; });
 }
@@ -342,7 +342,7 @@ Value lang$slice(Context&, void* ptr, size_t count)
     if (!index || !size || !subject)
         return { Empty {} };
 
-    return { subject->substring(index->value(), size->value()) };
+    return { subject->substring(index->to_size(), size->to_size()) };
 }
 
 Value lang$typeof(Context&, void* ptr, size_t count)
@@ -411,7 +411,7 @@ struct Greater {
 
 struct Equal {
     NumberType operator()(NumberType a, NumberType b) { return a == b; }
-    NumberType operator()(String const& a, String const& b) { return a == b; }
+    NumberType operator()(String const& a, String const& b) { return u64(a == b); }
     NumberType operator()(NonnullRefPtr<Type> const& a, NonnullRefPtr<Type> const& b)
     {
         if (a.ptr() == b.ptr())
@@ -432,7 +432,7 @@ struct Equal {
 
         return all_of(a_type, [&b_type, i = size_t { 0 }](auto& a) {
             auto& b = b_type[const_cast<size_t&>(i)++];
-            return a.name == b.name && Equal {}(a.type, b.type);
+            return a.name == b.name && Equal {}(a.type, b.type).template to<bool>();
         });
     }
 };
@@ -448,17 +448,29 @@ struct Flat {
 };
 
 struct Max {
-    NumberType operator()(NumberType a, NumberType b) { return max(a, b); }
+    NumberType operator()(NumberType a, NumberType b)
+    {
+        return Number::map([](auto a, auto b) -> Number { return max(a, b); }, a, b);
+    }
     String operator()(String const& a, String const& b) { return max(a, b); }
-    String operator()(NumberType a, String const& b) { return max(String::number(a.value()), b); }
-    String operator()(String const& a, NumberType b) { return max(a, String::number(b.value())); }
+    String operator()(NumberType a, String const& b)
+    {
+        return max(Number::map([](auto a) { return String::number(a); }, a), b);
+    }
+    String operator()(String const& a, NumberType b) { return this->operator()(b, a); }
 };
 
 struct Min {
-    NumberType operator()(NumberType a, NumberType b) { return min(a, b); }
+    NumberType operator()(NumberType a, NumberType b)
+    {
+        return Number::map([](auto a, auto b) -> Number { return min(a, b); }, a, b);
+    }
     String operator()(String const& a, String const& b) { return min(a, b); }
-    String operator()(NumberType a, String const& b) { return min(String::number(a.value()), b); }
-    String operator()(String const& a, NumberType b) { return min(a, String::number(b.value())); }
+    String operator()(NumberType a, String const& b)
+    {
+        return min(Number::map([](auto a) { return String::number(a); }, a), b);
+    }
+    String operator()(String const& a, NumberType b) { return this->operator()(b, a); }
 };
 
 void initialize_base(Context& context)
@@ -488,9 +500,9 @@ void initialize_base(Context& context)
     scope.set("append", { NativeFunctionType { lang$append, { "native meta append operation" } } });
 
     // types
-    scope.set("int", { create<Type>(NativeType::Int) });
-    scope.set("string", { create<Type>(NativeType::String) });
-    scope.set("any", { create<Type>(NativeType::Any) });
+    scope.set("int", { make_ref_counted<Type>(NativeType::Int) });
+    scope.set("string", { make_ref_counted<Type>(NativeType::String) });
+    scope.set("any", { make_ref_counted<Type>(NativeType::Any) });
 
     scope.set("typeof", { NativeFunctionType { lang$typeof, { "native meta typeof operation" } } });
 }
